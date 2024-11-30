@@ -3,23 +3,327 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>موقع مشابه لجيرا</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>منصة إدارة المشاريع مع السوبر أدمن والكانبان وارتباط المستخدم</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+        h2 {
+            text-align: center;
+        }
+        input[type="text"], input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #219150;
+        }
+        .link {
+            text-align: center;
+            margin-top: 10px;
+        }
+        .kanban-board {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .column {
+            background-color: white;
+            border-radius: 5px;
+            padding: 10px;
+            width: 30%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .task-card {
+            background: #ecf0f1;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: move;
+        }
+        .admin-panel {
+            display: none;
+            margin-top: 20px;
+        }
+        .user-list {
+            margin-top: 20px;
+        }
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>لوحة المهام</h1>
-    </header>
-    <main>
-        <section id="task-list">
-            <h2>المهام</h2>
-            <ul id="tasks">
-                <!-- المهام ستظهر هنا -->
-            </ul>
-            <input type="text" id="task-input" placeholder="أضف مهمة جديدة">
+    <div class="container" id="loginContainer">
+        <h2>تسجيل الدخول</h2>
+        <input type="text" id="username" placeholder="اسم المستخدم" />
+        <input type="password" id="password" placeholder="كلمة المرور" />
+        <button onclick="login()">دخول</button>
+        <div class="link">
+            <a href="#" onclick="showRegister()">إنشاء حساب</a>
+        </div>
+    </div>
+
+    <div class="container" id="registerContainer" style="display:none;">
+        <h2>إنشاء حساب</h2>
+        <input type="text" id="newUsername" placeholder="اسم المستخدم" />
+        <input type="password" id="newPassword" placeholder="كلمة المرور" />
+        <button onclick="register()">إنشاء</button>
+        <div class="link">
+            <a href="#" onclick="showLogin()">العودة لتسجيل الدخول</a>
+        </div>
+    </div>
+
+    <div id="app" style="display:none;">
+        <div class="topbar">
+            <div>
+                <input type="text" placeholder="بحث..." />
+            </div>
+            <div>
+                <button onclick="showAdminPanel()">لوحة الإدارة</button>
+                <button>الإشعارات</button>
+            </div>
+        </div>
+        <div class="add-task-form">
+            <input type="text" id="taskInput" placeholder="أدخل مهمة جديدة..." />
+            <input type="date" id="dueDateInput" />
             <button onclick="addTask()">إضافة مهمة</button>
-        </section>
-    </main>
-    <script src="script.js"></script>
+        </div>
+        <div class="kanban-board">
+            <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <h3>قيد الانتظار</h3>
+                <div id="todo" class="task-list"></div>
+            </div>
+            <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <h3>جاري التنفيذ</h3>
+                <div id="inProgress" class="task-list"></div>
+            </div>
+            <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <h3>منجز</h3>
+                <div id="done" class="task-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+        <h2>لوحة الإدارة</h2>
+        <div class="user-list" id="userList"></div>
+        <h3>إضافة مستخدم جديد</h3>
+        <input type="text" id="newAdminUsername" placeholder="اسم المستخدم" />
+        <input type="password" id="newAdminPassword" placeholder="كلمة المرور" />
+        <button onclick="addUser()">إضافة مستخدم</button>
+    </div>
+
+    <script>
+        const superAdminUsername = "admin"; // اسم المستخدم للسوبر أدمن
+        const superAdminPassword = "admin123"; // كلمة المرور للسوبر أدمن
+        let currentUser = null; // المستخدم الحالي
+        let isSuperAdmin = false;
+
+        document.addEventListener('DOMContentLoaded', loadTasks);
+
+        function loadTasks() {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || { todo: [], inProgress: [], done: [] };
+            tasks.todo.forEach(task => createTaskCard(task, 'todo'));
+            tasks.inProgress.forEach(task => createTaskCard(task, 'inProgress'));
+            tasks.done.forEach(task => createTaskCard(task, 'done'));
+            loadUsers(); // تحميل المستخدمين عند بدء التطبيق
+        }
+
+        function loadUsers() {
+            const users = JSON.parse(localStorage.getItem('users')) || {};
+            const userList = document.getElementById('userList');
+            userList.innerHTML = ''; // مسح القائمة الحالية
+            for (const username in users) {
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                userItem.innerHTML = `${username} <button onclick="removeUser('${username}')">حذف</button>`;
+                userList.appendChild(userItem);
+            }
+        }
+
+        function addUser() {
+            const newUsername = document.getElementById('newAdminUsername').value;
+            const newPassword = document.getElementById('newAdminPassword').value;
+
+            if (newUsername && newPassword) {
+                const users = JSON.parse(localStorage.getItem('users')) || {};
+                users[newUsername] = newPassword;
+                localStorage.setItem('users', JSON.stringify(users));
+                loadUsers(); // تحديث قائمة المستخدمين
+                alert('تم إضافة المستخدم بنجاح!');
+            } else {
+                alert('يرجى ملء جميع الحقول.');
+            }
+        }
+
+        function removeUser(username) {
+            const users = JSON.parse(localStorage.getItem('users')) || {};
+            delete users[username];
+            localStorage.setItem('users', JSON.stringify(users));
+            loadUsers(); // تحديث قائمة المستخدمين
+            alert('تم حذف المستخدم بنجاح!');
+        }
+
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            const dueDateInput = document.getElementById('dueDateInput');
+            
+            const taskText = taskInput.value.trim();
+            const dueDateText = dueDateInput.value;
+
+            if (taskText && dueDateText && currentUser) {
+                const task = { text: taskText, assignee: currentUser, dueDate: dueDateText };
+                createTaskCard(task, 'todo');
+                saveTask(task, 'todo');
+                taskInput.value = '';
+                dueDateInput.value = '';
+            } else {
+                alert('يرجى ملء جميع الحقول.');
+            }
+        }
+
+        function createTaskCard(task, column) {
+            const taskCard = document.createElement('div');
+            taskCard.className = 'task-card';
+            taskCard.draggable = true;
+            taskCard.innerHTML = `<strong>${task.text}</strong><br>الموظف: ${task.assignee}<br>تاريخ الانتهاء: ${task.dueDate}`;
+            taskCard.ondragstart = drag;
+            document.getElementById(column).appendChild(taskCard);
+        }
+
+        function saveTask(task, column) {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || { todo: [], inProgress: [], done: [] };
+            tasks[column].push(task);
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function drag(event) {
+            event.dataTransfer.setData("text", event.target.outerHTML);
+            event.dataTransfer.setData("column", event.target.parentNode.id); // حفظ العمود الأصلي
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData("text");
+            const originalColumn = event.dataTransfer.getData("column");
+            const taskCard = document.createElement('div');
+            taskCard.className = 'task-card';
+            taskCard.innerHTML = data;
+            taskCard.draggable = true;
+            taskCard.ondragstart = drag;
+            const column = event.target.id;
+
+            // إضافة المهمة إلى العمود الجديد
+            event.target.appendChild(taskCard);
+            updateLocalStorage(originalColumn, column, data);
+        }
+
+        function updateLocalStorage(originalColumn, newColumn, taskData) {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || { todo: [], inProgress: [], done: [] };
+
+            // إزالة المهمة من العمود الأصلي
+            const task = { 
+                text: taskData.match(/<strong>(.*?)<\/strong>/)[1], 
+                assignee: taskData.match(/الموظف: (.*?)<br>/)[1], 
+                dueDate: taskData.match(/تاريخ الانتهاء: (.*?)<\/div>/)[1] 
+            };
+            tasks[originalColumn] = tasks[originalColumn].filter(t => t.text !== task.text); // حذف المهمة من العمود الأصلي
+            tasks[newColumn].push(task); // إضافة المهمة إلى العمود الجديد
+
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        function register() {
+            const username = document.getElementById('newUsername').value;
+            const password = document.getElementById('newPassword').value;
+
+            if (username && password) {
+                const users = JSON.parse(localStorage.getItem('users')) || {};
+                users[username] = password;
+                localStorage.setItem('users', JSON.stringify(users));
+                alert('تم إنشاء الحساب بنجاح!');
+                showLogin();
+            } else {
+                alert('يرجى ملء جميع الحقول.');
+            }
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (username === superAdminUsername && password === superAdminPassword) {
+                isSuperAdmin = true;
+                currentUser = username; // تعيين المستخدم الحالي
+                alert('تم تسجيل الدخول كالسوبر أدمن!');
+                showAdminPanel();
+            } else {
+                const users = JSON.parse(localStorage.getItem('users')) || {};
+                if (users[username] && users[username] === password) {
+                    currentUser = username; // تعيين المستخدم الحالي
+                    alert('تم تسجيل الدخول بنجاح!');
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('registerContainer').style.display = 'none';
+                    document.getElementById('app').style.display = 'block';
+                } else {
+                    alert('اسم المستخدم أو كلمة المرور غير صحيحة.');
+                }
+            }
+        }
+
+        function showAdminPanel() {
+            if (isSuperAdmin) {
+                document.getElementById('adminPanel').style.display = 'block';
+            }
+        }
+
+        function showRegister() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('registerContainer').style.display = 'block';
+        }
+
+        function showLogin() {
+            document.getElementById('registerContainer').style.display = 'none';
+            document.getElementById('loginContainer').style.display = 'block';
+        }
+    </script>
 </body>
 </html>
